@@ -1,20 +1,18 @@
-FROM nginx:alpine AS runtime
+FROM nginx:alpine
 
-ARG PROXY_PASS=http://host.docker.internal:3000
-ARG PORT=4000
-ARG USERNAME=user
-ARG PASSWORD=password
+# Tools: envsubst comes from busybox; we need apache2-utils for htpasswd
+RUN apk add --no-cache apache2-utils
 
-RUN echo "proxy_pass: $PROXY_PASS\nport: $PORT\nusername: $USERNAME\npassword: $PASSWORD"
-
+# Copy template + entrypoint
 COPY ./nginx.conf.template /etc/nginx/nginx.conf.template
-RUN envsubst '$PROXY_PASS $PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
+# Runtime env (can be overridden by platform)
+ENV PORT=8080 \
+    PROXY_PASS=http://127.0.0.1:3000 \
+    USERNAME=user \
+    PASSWORD=password
 
-ENV USERNAME=$USERNAME
-ENV PASSWORD=$PASSWORD
-RUN apk add --no-cache openssl
-COPY ./gen_passwd.sh /etc/nginx/gen_passwd.sh
-RUN ["chmod", "+x", "/etc/nginx/gen_passwd.sh"]
-RUN /etc/nginx/gen_passwd.sh
-EXPOSE ${PORT}
+EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint.sh"]
